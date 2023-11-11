@@ -1,7 +1,5 @@
 #include "server.h"
-#include <exception.h>
-#include <sstream>
-#include <clientConnection.h>
+
 
 /**
  * @brief Constructor for Server class.
@@ -11,14 +9,20 @@
  * @param hostname The hostname or IP address on which the server will run.
  * @param port The port number on which the server will listen for connections.
  */
-Server::Server(const std::string hostname, const std::string port):hostname(hostname),port(port){}
+Server::Server(const std::string hostname, const std::string port):hostname(hostname),port(port),socket_fd(-1){
+    initialize();
+}
 
 /**
  * @brief Destructor for Server class.
  * 
  * Closes the server's listening socket to release the resources.
  */
-Server::~Server(){ close(this->socket_fd);}
+Server::~Server(){ 
+    if(socket_fd != -1){
+        close(socket_fd);
+    }
+}
 
 /**
  * @brief Initializes the server to be ready to accept connections.
@@ -30,9 +34,10 @@ Server::~Server(){ close(this->socket_fd);}
  */
 void Server::initialize()
 {
+    struct addrinfo *host_info_list;
     try
     {
-        struct addrinfo *host_info_list;
+        
         int socket_fd = this->socketCreation(host_info_list);
         this->bindSocket(host_info_list);
         freeaddrinfo(host_info_list);
@@ -40,8 +45,12 @@ void Server::initialize()
     }
     catch (const SocketConnException &e)
     {
+        freeaddrinfo(host_info_list);
+        if(this->socket_fd!=-1){
+            close(socket_fd);
+        }
         std::cerr << "Error encountered: " << e.what() << std::endl;
-        return;
+        throw;
     }
 
     // free objects allocated on the heap: freeaddrinfo() after getaddrinfo()
